@@ -1,0 +1,936 @@
+#!/home/scullydy/anaconda3/bin/python
+
+import numpy as np
+
+from scipy import linalg
+
+import matplotlib.pyplot as plt
+
+def column(matrix, i):
+	return [row[i] for row in matrix]
+
+# Fundamental constants
+
+pi     = 3.14159265359
+beta_e = 9.27400968e-24;
+beta_n = 5.05078353e-27;
+a0     = 5.29177210e-11;
+m0     = 4.0 * pi * 1.0e-07;
+
+# atomic parameters
+
+g_e = +2.0023;
+#g_n = +0.1806;  # 57Fe
+g_n = -1.1106;  # 29Si
+# B-field amplitude and components
+
+#B  = 1.3;   # Static field in Tesla
+B= 0.33
+Bx = 0.0;
+By = 0.0;
+Bz = B;     # Usual setting
+
+B_rot = 0.001; # EM field in Tesla
+
+
+#Define Rotation Matrices
+
+
+
+
+
+#0.174533 #This is 10degrees in radians
+
+#Rx = np.array([[1,0,0],[0,np.cos(x),-np.sin(x)],[0,np.sin(x),np.cos(x)]])
+
+
+#Ry = np.array([[np.cos(x),0,-np.sin(x)],[0,1,0],[np.sin(x),0,np.cos(x)]])
+
+
+#Rz = np.array([[np.cos(x),-np.sin(x),0],[np.sin(x),np.cos(x),0],[0,0,1]])
+
+
+
+
+
+
+
+#print("")
+#print("Rotation Matrix")
+#print("")
+#print(Rx)
+
+
+
+
+
+
+
+
+
+a1_fac =  m0 / 4.0 / pi * g_e * beta_e * g_n * beta_n / a0 / a0 / a0 * 0.5 * 0.5
+a0_fac = 2.0 / 3.0 * m0 * g_e * beta_e * g_n * beta_n / a0 / a0 / a0 * 0.5 * 0.5;
+a0_fac *= 1.552;
+
+# Below is the data set for value of A
+
+B = np.array([[0.19,-1.19,0.08,0.59,-0.29,-0.78],[0.19,1.19,0.08,0.59,0.29,-0.78],[0.46,-1.18,-0.25,0.31,-0.12,-0.77],[0.46,1.18,-0.25,0.31,0.12,-0.77],[40.10,-1.21,-0.13,0.71,0.26,-0.81],[0.10,1.21,-0.13,0.71,-0.26,-0.81],[0.16,-0.83,0.11,0.42,0.21,-0.58],[0.16,0.83,0.11,0.42,-0.21,-0.58],[-0.06,0.00,0.23,-0.54,0.03,0.60],[-0.06,-0.00,0.23,-0.54,-0.03,0.60],[0.18,0.59,0.05,0.14,-0.25,-0.31],[0.18,-0.59,0.05,0.14,0.25,-0.31],[-0.31,0.01,-0.37,-0.94,0.01,1.25],[-0.31,-0.01,-0.37,-0.94,-0.01,1.25],[0.06,0.00,-0.12,-0.05,0.01,-0.01],[0.06,-0.00,-0.12,-0.05,-0.01,-0.01],[0.39,-0.66,0.17,0.11,0.14,-0.49],[0.39,0.66,0.17,0.11,-0.14,-0.49],[-0.16,-0.01,-0.01,-0.19,-0.29,0.35],[-0.16,0.01,-0.01,-0.19,0.29,0.35],[0.14,-0.13,-0.08,-0.08,0.17,-0.06],[0.14,0.13,-0.08,-0.08,-0.17,-0.06],[-0.15,-0.23,-0.05,0.15,-0.25,-0.00],[-0.15,0.23,-0.05,0.15,0.25,-0.00],[-0.96,-0.00,-0.06,-0.58,0.05,1.54],[-0.96,0.00,-0.06,-0.58,-0.05,1.54],[0.33,0.96,0.20,0.31,-0.14,-0.64],[0.33,-0.96,0.20,0.31,0.14,-0.64],[-0.09,0.01,-0.01,0.06,0.12,0.03],[-0.09,-0.01,-0.01,0.06,-0.12,0.03],[-1.09,-0.01,-0.03,-0.55,0.16,1.63],[-1.09,0.01,-0.03,-0.55,-0.16,1.63]])
+
+
+Bt = B.T  #transpose of data set
+
+
+B1a1 = column(Bt,0)
+
+#B1a1 = column(Bt,1)
+
+B1a2 = column(Bt,2)
+
+B1a2 = column(Bt,3)
+
+B1b1 = column(Bt,4)
+
+B1b1 = column(Bt,5)
+
+B1b2 = column(Bt,6)
+
+B1b2 = column(Bt,7)
+
+B2a1 = column(Bt,8)
+
+B2a1 = column(Bt,9)
+
+B2a2 = column(Bt,10)
+
+B2a2 = column(Bt,11)
+
+B2b1 = column(Bt,12)
+
+B2b1 = column(Bt,13)
+
+B2b2 = column(Bt,14)
+
+B2b2 = column(Bt,15)
+
+B31 = column(Bt,16)
+
+B31 = column(Bt,17)
+
+B32 = column(Bt,18)
+
+B32 = column(Bt,19)
+
+B33 = column(Bt,20)
+
+B33 = column(Bt,21)
+
+B34 = column(Bt,22)
+
+B34 = column(Bt,23)
+
+B41 = column(Bt,24)
+
+B41 = column(Bt,25)
+
+B42 = column(Bt,26)
+
+B42 = column(Bt,27)
+
+B43 = column(Bt,28)
+
+B43 = column(Bt,29)
+
+B44 = column(Bt,30)
+
+B44 = column(Bt,31)
+
+#These are all the columns of the data set
+
+
+
+D = B1a1
+
+#Where D is the lattice site.
+#Insert the lattice site here and it will give you the eigenvalues and eigenvectors
+
+#
+#xx[0] =  2.061293E-02; yy[0] =  2.390965E-01; zz[0] = -2.597094E-01; 
+#xy[0] = -2.416999E-01; 
+#xz[0] =  4.886234E-01; yz[0] =  3.256418E-01; // Si 124
+
+Axx =  2.061293E-02   #D[0]
+
+Axy = Ayx = -2.416999E-01   #D[1]
+
+Axz = Azx = 4.886234E-01     #D[2]
+
+Ayy = 2.390965E-01        #D[3]
+
+Ayz = Azy = 3.256418E-01       #D[4]
+
+Azz = -2.597094E-01                #D[5]
+
+#Equates elements of columns of the data set with values for axx,axy etc
+
+
+a1 = np.array([[Axx,Axy,Axz],[Ayx,Ayy,Ayz],[Azx,Azy,Azz]])
+
+
+#print("")
+#print("3X3 A1 MATRIX")
+#print(a1)
+
+#print("3X3 A1 MATRIX ROTATIONS")
+#print("")
+
+#for x in range(0,10):
+#	a=x
+#	print(a)
+#	b=a*pi/18
+#	Ry = np.array([[np.cos(b),0,-np.sin(b)],[0,1,0],[np.sin(b),0,np.cos(b)]])
+#	a1 = Ry*a1*np.transpose(Ry)
+#	print(a1)
+#	a = column(a1,0)
+#	b = column(a1,1)
+#	c = column(a1,2)
+#	Axx = a[0] 
+#	Axy = Ayx = a[1]
+#	Axz = Azx = a[2]
+#	Ayy = b[1]
+#	Ayz = Azy = b[2]
+##	Azz = c[2]
+#	#now we put these into 4x4 matrix
+#	a11 = Azz
+#	a12 = -Azy*1j + Azx
+#	a13 = Axz -Ayz*1j
+##	a14 = Axx - Ayy - 2*Axy*1j
+#	a21 = Azx + Azy*1j
+#	a22 = -Azz
+#	a23 = Axx + Ayy
+#	a24 = -Axz + Ayz*1j
+#	a31 = Axz + Ayz*1j
+#	a32 = Axx + Ayy
+##	a33 = -Azz
+#	a34 = -Azx + Azy*1j
+#	a41 = Axx - Ayy + 2*Axy*1j
+#	a42 = -Axz - Ayz*1j
+#	a43 = -Azx - Azy*1j
+#	a44 = Azz
+#	A1 = a1_fac * np.array([[a11,a12,a13,a14],[a21,a22,a23,a24],[a31,a32,a33,a34],[a41,a42,a43,a44]])
+#	print(A1)
+#
+
+#Below is some test code to check if the matrix rotations are working correctly
+
+#z = np.array([[1,2,3,4],[1,2,3,4],[1,2,3,4],[1,2,3,4]])
+#print("STARTING TEST CODE")
+
+
+#for x in range(0,10):
+#	a=x
+#	print(a)
+#	print("A1 rotation about x-axis")
+#	b= a*pi/18
+#	Rx = np.array([[1,0,0,0],[0,np.cos(b),-np.sin(b),0],[0,np.sin(b),np.cos(b),0],[0,0,0,1]])
+#	print(Rx*z*np.transpose(Rx))
+
+
+
+
+
+       
+
+
+
+
+
+
+
+#Below is the A1 hamiltonian matrix
+#We want to multiply this by Rx, then Rz, then Ry through 90degrees
+#We will need a loop for this
+
+
+
+#print("Eigenvalues and Eigenvectors of A1 Rotations")
+#print("")
+
+
+
+
+#for x in range(0,10):
+#        a=x
+ #       print(a)
+  #      b= a*pi/18
+   #     Rx = np.array([[1,0,0,0],[0,np.cos(b),-np.sin(b),0],[0,np.sin(b),np.cos(b),0],[0,0,0,1]])
+    #    print(Rx*A1*np.transpose(Rx))
+
+
+
+
+
+
+print("")
+print("")
+print("Hamiltonian A1  Matrix")
+
+#print(A1)
+
+print("")
+
+#Hamiltonian
+
+
+#below is the A0 part of the Hamiltonian
+#and the data for the 32 lattice sites
+
+f_0  = -0.55126E+00
+f_1  = -0.55126E+00
+f_2  = -0.54928E+00
+f_3  = -0.54928E+00
+f_4  = -0.55432E+00
+f_5  = -0.55432E+00
+f_6  = -0.57229E+00
+f_7  = -0.57229E+00
+f_8  = -0.58399E+00
+f_9  = -0.58399E+00
+f_10 = -0.58287E+00
+f_11 = -0.58287E+00
+f_12 = -0.55666E+00
+f_13 = -0.55666E+00
+f_14 = -0.60132E+00
+f_15 = -0.60132E+00
+f_16 = -0.58147E+00
+f_17 = -0.58147E+00
+f_18 = -0.58444E+00
+f_19 = -0.58444E+00
+f_20 = -0.58315E+00
+f_21 = -0.58315E+00
+f_22 = -0.59814E+00
+f_23 = -0.59814E+00
+f_24 = -0.54901E+00
+f_25 = -0.54901E+00
+f_26 = -0.56177E+00
+f_27 = -0.56177E+00
+f_28 = -0.59389E+00
+f_29 = -0.59389E+00
+f_30 = -0.54695E+00
+f_31 = -0.54695E+00
+
+
+
+
+print("A0 Matrix")
+
+xx = yy = zz = f_0  
+
+
+#la,v = linalg.eig(A1)
+
+A = np.array([[xx,0,0,0],[0,-yy,2*xx,0],[0,2*xx,-zz,0],[0,0,0,zz]])
+print("")
+
+print(A)
+
+
+
+
+print("")
+
+print("A0 Matrix including a0_fac")
+
+
+A0 = a0_fac*A
+
+print("")
+ 
+
+
+print(A0)
+
+
+print("")
+
+
+
+
+#print("Eigenvalues of A1")
+
+#print (la) #Eigenvalues of Hamiltonian
+
+#print("")
+
+#print("Eigenvectors of A1")
+
+#print (v[:,0])
+
+#print (v[:,1])
+
+#print (v[:,2])
+
+#print (v[:,3])
+
+#Eigenvectors of the Hamiltonian
+
+#c,d = linalg.eig(A0)
+
+#print ("")
+#print ("Eigenvalues of A0")
+#print (c)
+#print ("")
+
+#print ("Eigenvectors of A0")
+#print (d)
+#print ("")
+
+
+#print ("")
+
+#Total Hamiltionian due to coupling
+
+#H1 = A0 + A1
+
+#print ("Total Hamiltonian due to Coupling")
+
+#print (H1)
+
+#print ("")
+
+#e,f = linalg.eig(H1)
+
+#print ("Eigenvalues of H1")
+
+#print ("")
+
+#print (e)
+
+#print ("")
+
+#print ("Eigenvectors of H1")
+#print ("")
+
+#print (f)
+
+
+
+
+
+#ZEEMAN STARTS HERE
+
+#Now set up our matrix for the electronic zeeman terms
+
+z11 = g_e*beta_e*Bz/2
+
+z12 = 0
+
+z13 = g_e*beta_e*Bx/2 - g_e*beta_e*By*1j/2
+
+z14 = 0
+
+z21 = 0
+
+z22 = g_e*beta_e*Bz/2
+
+z23 = 0
+
+z24 = g_e*beta_e*Bx/2 - g_e*beta_e*By*1j/2
+
+z31 = g_e*beta_e*Bx/2 + g_e*beta_e*By*1j/2
+
+z32 = 0
+
+z33 = -g_e*beta_e*Bz/2
+
+z34 = 0
+
+z41 = 0
+
+z42 = g_e*beta_e*Bx/2 + g_e*beta_e*By*1j/2
+
+z43 = 0
+
+z44 = -g_e*beta_e*Bz/2
+
+#These are all the elements of our zeeman Hamiltonian matrix
+
+#Now set up the hamiltonian
+
+Z_e = np.array([[z11,z12,z13,z14],[z21,z22,z23,z24],[z31,z32,z33,z34],[z41,z42,z43,z44]])
+
+print ("Electronic Zeeman Hamiltonian")
+print ("")
+
+print(Z_e)
+
+
+#Now set up our matrix for the Nuclear zeeman terms
+
+q11 = g_n*beta_n*Bz/2
+
+q12 = g_n*beta_n*Bx/2 - g_n*beta_n*By*1j/2
+
+q13 = 0
+
+q14 = 0
+
+q21 = g_n*beta_n*Bx/2 + g_n*beta_n*By*1j/2
+
+q22 = -g_n*beta_n*Bz/2
+
+q23 = 0
+
+q24 = 0
+
+q31 = 0
+
+q32 = 0
+
+q33 = +g_n*beta_n*Bz/2
+
+q34 = g_n*beta_n*Bx/2 - g_n*beta_n*By*1j/2
+
+q41 = 0
+
+q42 = 0
+
+q43 = g_n*beta_n*Bx/2 + g_n*beta_n*By*1j/2
+
+q44 = -g_n*beta_n*Bz/2
+
+
+
+Z_n = np.array([[q11,q12,q13,q14],[q21,q22,q23,q24],[q31,q32,q33,q34],[q41,q42,q43,q44]])
+
+
+print ("Nuclear Zeeman Hamiltonian")
+print ("")
+
+
+
+
+print (Z_n)
+
+#Total Hamiltonian for zeeman terms = Z_e + Z_n
+
+
+Hz = Z_e + Z_n
+
+print ("Hamiltonian Zeeman Matrix")
+print("")
+
+print(Hz)
+
+print ("")
+
+
+la,v = linalg.eig(Hz)
+
+print ("")
+print ("Eigenvalues of Zeeman Hamiltonian")
+print ("")
+
+
+
+
+print (la) #Eigenvalues of Hamiltonian
+
+
+print ("")
+print ("Eigenvectors of Zeeman Hamiltonian")
+print ("")
+
+
+print (v[:,0])
+
+print (v[:,1])
+
+print (v[:,2])
+
+print (v[:,3])
+
+#Eigenvectors of the Hamiltonian
+
+
+
+#Multiply our matrix by the B-field
+
+
+
+
+
+print ("")
+print ("Complete Hamiltonian Zeeman + Coupling")
+print ("")
+
+#H = H1 + Hz
+
+#print (H)
+
+#q,r = linalg.eig(H)
+
+print ("")
+print("Eigenvalues of Complete Hamiltonian")
+
+print ("")
+
+#print(q)
+
+print ("")
+
+print("Eigenvectors of Complete Hamiltonian")
+
+print("")
+#print (r)
+
+
+print("EIGENVALUES OF THE COMPLETE HAMILTONIAN ROTATION")
+
+#Below we are performing rotations of A1 and finding the corresponding
+#Eigenvalues of the complete hamiltonian H
+
+#for x in range(0,10):
+#	a=x
+#	print(a)
+#	b=a*pi/18
+#	Rx = np.array([[1,0,0,0],[0,np.cos(b),-np.sin(b),0],[0,np.sin(b),np.cos(b),0],[0,0,0,1]])
+#	A1 = Rx*A1*np.transpose(Rx)
+#	H = A1+A0+Hz
+#	q,r = linalg.eig(H)
+#	print("Eigenvalues of H:X-rotation")
+#	print("")
+#	print(q)
+
+
+#we will now do the z-rotations but first have to use the value of A1 after it has been rotated 90 about x
+
+#Rx = np.array([[1,0,0,0],[0,0,-1,0],[0,1,0,0],[0,0,0,1]])
+
+#A1=Rx*A1*np.transpose(Rx)
+
+#for x in range(0,10):
+ #       a=x
+  #      print(a)
+   #     b=a*pi/18
+    #    Rz = np.array([[np.cos(b),-np.sin(b),0,0],[np.sin(b),np.cos(b),0,0],[0,0,1,0],[0,0,0,1]])
+     #   A1 = Rz*A1*np.transpose(Rz)
+      #  H = A1+A0+Hz
+       # q,r = linalg.eig(H)
+        #print("Eigenvalues of H:Z-rotation")
+       # print("")
+       # print(q)
+
+
+
+
+
+
+
+
+
+
+#Now we will now do the -y rotations
+#but first:
+
+#Rz = np.array([[0,-1,0,0],[1,0,0,0],[0,0,1,0],[0,0,0,1]])
+
+#A1 = Rz*A1*np.transpose(Rz)
+
+#for x in range(0,10):
+ #       a=x
+  #      print(a)
+   #     b=a*pi/18
+    #    Ry = np.array([[np.cos(-b),0,np.sin(-b),0],[0,1,0,0],[-np.sin(-b),0,np.cos(-b),0],[0,0,0,1]])
+    #    A1 = Ry*A1*np.transpose(Ry)
+    #    H = A1+A0+Hz
+     #   q,r = linalg.eig(H)
+      #  print("Eigenvalues of H:Y-rotation")
+       # print("")
+        #print(q)
+
+
+
+
+
+
+
+
+
+
+
+
+
+#print("Checking the A1 Matrix to be used next")
+
+
+#print(A1)
+
+
+
+
+
+
+
+
+print("")
+
+#TESTESTESTESTESTESTEST
+
+#print("MATRIX MULTIPLICATION TEST")
+
+
+
+#F = np.array([[1,2,3,4],[1,2,3,4],[1,2,3,4],[1,2,3,4]])
+
+#G = np.array([[1,0,0,0],[0,0,-1,0],[0,1,0,0],[0,0,0,1]])
+
+#VV = G*F
+
+#print(VV)
+
+
+
+
+#print("")
+#print("")
+#print("TEST OF THE Y ROTATION MATRIX")
+
+#Q = np.array([[0,-1,0,0],[1,0,0,0],[0,0,1,0],[0,0,0,1]])
+
+#Y = Q*F*np.transpose(Q)
+#print(Y)
+
+#print("THE FOLLOWING SHOULD RESULT IN THE SAME ANSWER")
+
+#for x in range(0,10):
+#        a=x
+#        print(a)
+#        b=a*pi/18
+#        Ry = np.array([[np.cos(b),0,np.sin(b),0],[0,1,0,0],[-np.sin(b),0,np.cos(b),0],[0,0,0,1]])
+#        y = Ry*F*np.transpose(Ry)
+ #       print(y)
+
+
+
+
+
+a1 = np.array([[Axx,Axy,Axz],[Ayx,Ayy,Ayz],[Azx,Azy,Azz]])
+
+
+print("")
+print("3X3 A1 MATRIX")
+print(a1)
+
+print("3X3 A1 MATRIX ROTATIONS")
+print("")
+
+
+eigenvalues1 =[] 
+
+
+
+for x in range(0,10):
+        a=x
+        print(a)
+        b=a*pi/18
+        Ry = np.array([[np.cos(b),0,-np.sin(b)],[0,1,0],[np.sin(b),0,np.cos(b)]])
+        a1 = Ry*a1*np.transpose(Ry)
+        a = column(a1,0)
+        b = column(a1,1)
+        c = column(a1,2)
+        Axx = a[0]
+        Axy = Ayx = a[1]
+        Axz = Azx = a[2]
+        Ayy = b[1]
+        Ayz = Azy = b[2]
+        Azz = c[2]
+        #now we put these into 4x4 matrix
+        a11 = Azz
+        a12 = -Azy*1j + Azx
+        a13 = Axz -Ayz*1j
+        a14 = Axx - Ayy - 2*Axy*1j
+        a21 = Azx + Azy*1j
+        a22 = -Azz
+        a23 = Axx + Ayy
+        a24 = -Axz + Ayz*1j
+        a31 = Axz + Ayz*1j
+        a32 = Axx + Ayy
+        a33 = -Azz
+        a34 = -Azx + Azy*1j
+        a41 = Axx - Ayy + 2*Axy*1j
+        a42 = -Axz - Ayz*1j
+        a43 = -Azx - Azy*1j
+        a44 = Azz
+        A1 = a1_fac * np.array([[a11,a12,a13,a14],[a21,a22,a23,a24],[a31,a32,a33,a34],[a41,a42,a43,a44]])
+        H1 = A1 + A0
+        H=H1 + Hz
+        print("")
+        print("Complete Hamiltonian Matrix including y rotations")
+        print(H)
+        q,r=linalg.eig(H)
+        print("")
+        print("Eigenvalues of H")
+        print(q)
+        eigenvalues1.append(q)
+        #plt.plot([a], [q], 'ro')
+        #plt.axis([0,0.2,-1.3e-23,1.3e-23])
+        #plt.show()
+       
+
+print("")
+print("EIGENVALUES")
+print(eigenvalues1)
+
+
+print("")
+plt.plot(eigenvalues1, 'r.')
+plt.show()
+
+
+
+
+
+
+
+
+print("")
+print("3x3 a1 Matrix")
+print(a1)
+
+
+eigenvalues2 = []
+
+#Now we rotate about the Z-axis
+
+for x in range(0,10):
+        a=x
+        print(a)
+        b=a*pi/18
+        Rz = np.array([[np.cos(b),-np.sin(b),0],[np.sin(b),np.cos(b),0],[0,0,1]])
+        a1 = Rz*a1*np.transpose(Rz)
+        a = column(a1,0)
+        b = column(a1,1)
+        c = column(a1,2)
+        Axx = a[0]
+        Axy = Ayx = a[1]
+        Axz = Azx = a[2]
+        Ayy = b[1]
+        Ayz = Azy = b[2]
+        Azz = c[2]
+        #now we put these into 4x4 matrix
+        a11 = Azz
+        a12 = -Azy*1j + Azx
+        a13 = Axz -Ayz*1j
+        a14 = Axx - Ayy - 2*Axy*1j
+        a21 = Azx + Azy*1j
+        a22 = -Azz
+        a23 = Axx + Ayy
+        a24 = -Axz + Ayz*1j
+        a31 = Axz + Ayz*1j
+        a32 = Axx + Ayy
+        a33 = -Azz
+        a34 = -Azx + Azy*1j
+        a41 = Axx - Ayy + 2*Axy*1j
+        a42 = -Axz - Ayz*1j
+        a43 = -Azx - Azy*1j
+        a44 = Azz
+        A1 = a1_fac * np.array([[a11,a12,a13,a14],[a21,a22,a23,a24],[a31,a32,a33,a34],[a41,a42,a43,a44]])
+        H1 = A1 + A0
+        H=H1 + Hz
+        print("")
+        print("Complete Hamiltonian Matrix including Z rotations")
+        print(H)
+        q,r=linalg.eig(H)
+        print("")
+        print("Eigenvalues of H")
+        print(q)
+        eigenvalues2.append(q)
+        #plt.plot([a], [q], 'ro')
+        #plt.axis([0,0.2,-1.3e-23,1.3e-23])
+        #plt.show()
+
+        
+print("")
+print("EIGENVALUES")
+print(eigenvalues2)
+
+
+print("")
+plt.plot(eigenvalues2, 'r.')
+plt.show()
+
+
+
+print("")
+print("3x3 a1 Matrix")
+print(a1)
+
+#Now we rotate back up, about the x axis (positively)
+
+eigenvalues3 = []
+
+
+
+for x in range(0,10):
+        a=x
+        print(a)
+        b=a*pi/18
+        Rx = np.array([[1,0,0],[0,np.cos(b),-np.sin(b)],[0,np.sin(b),np.cos(b)]])
+        a1 = Rx*a1*np.transpose(Rx)
+        a = column(a1,0)
+        b = column(a1,1)
+        c = column(a1,2)
+        Axx = a[0]
+        Axy = Ayx = a[1]
+        Axz = Azx = a[2]
+        Ayy = b[1]
+        Ayz = Azy = b[2]
+        Azz = c[2]
+        #now we put these into 4x4 matrix
+        a11 = Azz
+        a12 = -Azy*1j + Azx
+        a13 = Axz -Ayz*1j
+        a14 = Axx - Ayy - 2*Axy*1j
+        a21 = Azx + Azy*1j
+        a22 = -Azz
+        a23 = Axx + Ayy
+        a24 = -Axz + Ayz*1j
+        a31 = Axz + Ayz*1j
+        a32 = Axx + Ayy
+        a33 = -Azz
+        a34 = -Azx + Azy*1j
+        a41 = Axx - Ayy + 2*Axy*1j
+        a42 = -Axz - Ayz*1j
+        a43 = -Azx - Azy*1j
+        a44 = Azz
+        A1 = a1_fac * np.array([[a11,a12,a13,a14],[a21,a22,a23,a24],[a31,a32,a33,a34],[a41,a42,a43,a44]])
+        H1 = A1 + A0
+        H=H1 + Hz
+        print("")
+        print("Complete Hamiltonian Matrix including X rotations")
+        print(H)
+        q,r=linalg.eig(H)
+        print("")
+        print("Eigenvalues of H")
+        print(q)
+        eigenvalues3.append(q)
+        #plt.plot([a], [q], 'ro')
+        #plt.axis([0,0.1,-1.3e-23,1.3e-23])
+        #plt.show()
+
+print("")
+print("EIGENVALUES")
+print(eigenvalues3)
+
+
+print("")
+plt.plot(eigenvalues3, 'r.')
+plt.show()
+
+
+
+
+print("")
+plt.plot(eigenvalues1 + eigenvalues2 + eigenvalues3, 'r.')
+plt.show()
+
+#The above is the final crystal rotation
