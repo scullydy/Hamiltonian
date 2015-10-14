@@ -1,0 +1,753 @@
+/* cc -o nmr_quantum nmr_quantum.c -lgsl -lgslcblas */
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <math.h>
+#include <complex.h>
+#include <gsl/gsl_linalg.h>
+#include <gsl/gsl_matrix_complex_double.h>
+#include <gsl/gsl_math.h>
+#include <gsl/gsl_eigen.h>
+#include <gsl/gsl_blas.h>
+#include <gsl/gsl_complex_math.h>
+
+main()
+
+{
+
+int i, j, k, l, p;
+int m, n = 4 ;
+int max = 2 ;
+double E[n]  ;
+double xx[48], xy[48], xz[48], yy[48], yz[48], zz[48];
+double fermi[48];
+double a0_fac, a1_fac, e_fac_x, e_fac_y, e_fac_z, n_fac_x, n_fac_y, n_fac_z, beta_e, beta_n;
+double tm_s_fac, tm_i_fac;
+double a0, m0, g_e, g_n;
+double theta, sin_theta, sin_phi, cos_theta, cos_phi, pi = 3.14159;
+double ux, uy, uz, B, Bx, By, Bz, B_rot;
+double epr_transition_matrix[4],epr_transition_energy[4];
+double nmr_transition_matrix[2],nmr_transition_energy[2];
+double energy_level[4];
+FILE *datout;
+
+gsl_complex temp;
+gsl_complex temp_i;
+gsl_complex temp_f;
+gsl_complex temp_m;
+
+gsl_matrix_complex *A0 = gsl_matrix_complex_alloc(n,n);
+gsl_matrix_complex *A1 = gsl_matrix_complex_alloc(n,n);
+gsl_matrix_complex *Ez = gsl_matrix_complex_alloc(n,n);
+gsl_matrix_complex *Nz = gsl_matrix_complex_alloc(n,n);
+gsl_matrix_complex *Ha = gsl_matrix_complex_alloc(n,n);
+gsl_matrix_complex *TM = gsl_matrix_complex_alloc(n,n);
+gsl_matrix_complex *evec = gsl_matrix_complex_alloc (n, n);
+gsl_matrix_complex *zmat_temp0 = gsl_matrix_complex_alloc (n, n);
+gsl_matrix_complex *zmat_temp1 = gsl_matrix_complex_alloc (n, n);
+
+gsl_matrix  *XX = gsl_matrix_alloc(3,3);
+gsl_matrix  *XR = gsl_matrix_alloc(3,3);
+gsl_matrix  *T  = gsl_matrix_alloc(3,3);
+gsl_matrix  *Tt = gsl_matrix_alloc(3,3);
+gsl_matrix  *T1 = gsl_matrix_alloc(3,3);
+gsl_matrix  *T1t= gsl_matrix_alloc(3,3);
+gsl_matrix  *TE = gsl_matrix_alloc(3,3);
+
+gsl_eigen_hermv_workspace * w = gsl_eigen_hermv_alloc (n);
+gsl_vector *eval = gsl_vector_alloc (n);
+
+datout = fopen("output","w");
+
+// Fundamental constants 
+
+beta_e = 9.27400968e-24;
+beta_n = 5.05078353e-27;
+a0     = 5.29177210e-11;
+m0     = 4.0 * pi * 1.0e-07;
+
+// atomic parameters 
+
+g_e = +2.0023;
+//g_n = +0.1806;  // 57Fe
+g_n = -1.1106;  // 29Si
+
+// B-field amplitude and components 
+
+  B  = 0.33;   // Static field in Tesla
+  //B  = 1.3;   // Static field in Tesla
+  Bx = 0.0;
+  By = 0.0; 
+  Bz = B;     // Usual setting
+
+  B_rot = 0.001; // EM field in Tesla
+
+// Anisotropic hyperfine tensors 
+
+xx[0] =  2.061293E-02; yy[0] =  2.390965E-01; zz[0] = -2.597094E-01; xy[0] = -2.416999E-01; xz[0] =  4.886234E-01; yz[0] =  3.256418E-01; // Si 124
+
+fermi[0] = -0.15249E+01;
+//fermi[0] = -0.0;
+
+/*  Magnetite
+
+//EXPT 10 test 4 
+
+// A sites
+
+ fermi[0]  =   0.62184E+00;
+ fermi[1]  =   0.62184E+00;
+ fermi[2]  =   0.62184E+00;
+ fermi[3]  =   0.62184E+00;
+ fermi[4]  =   0.62540E+00;
+ fermi[5]  =   0.62540E+00;
+ fermi[6]  =   0.61688E+00;
+ fermi[7]  =   0.61688E+00;
+ fermi[8]  =   0.62150E+00;
+ fermi[9]  =   0.62150E+00;
+ fermi[10] =   0.61819E+00;
+ fermi[11] =   0.61819E+00;
+ fermi[12] =   0.61807E+00;
+ fermi[13] =   0.61807E+00;
+ fermi[14] =   0.62016E+00;
+ fermi[15] =   0.62016E+00;
+
+xx[0] =  0.0225; xy[0] = -0.0063; xz[0] = -0.0016; yy[0] = -0.0147; yz[0] =  0.0000; zz[0] = -0.0077;   // 1  A1
+xx[1] =  0.0225; xy[1] =  0.0063; xz[1] = -0.0016; yy[1] = -0.0147; yz[1] = -0.0000; zz[1] = -0.0077;   // 2  A1
+xx[2] =  0.0149; xy[2] =  0.0020; xz[2] =  0.0000; yy[2] = -0.0156; yz[2] = -0.0011; zz[2] =  0.0006;   // 3  A2
+xx[3] =  0.0149; xy[3] = -0.0020; xz[3] =  0.0000; yy[3] = -0.0156; yz[3] =  0.0011; zz[3] =  0.0006;   // 4  A2
+xx[4] = -0.0002; xy[4] = -0.0023; xz[4] =  0.0001; yy[4] = -0.0018; yz[4] =  0.0023; zz[4] =  0.0020;   // 5  A3
+xx[5] = -0.0002; xy[5] =  0.0023; xz[5] =  0.0001; yy[5] = -0.0018; yz[5] = -0.0023; zz[5] =  0.0020;   // 6  A3
+xx[6] =  0.0070; xy[6] = -0.0046; xz[6] =  0.0180; yy[6] = -0.0011; yz[6] =  0.0135; zz[6] = -0.0058;   // 7  A4
+xx[7] =  0.0070; xy[7] =  0.0046; xz[7] =  0.0180; yy[7] = -0.0011; yz[7] = -0.0135; zz[7] = -0.0058;   // 8  A4
+xx[8] = -0.0003; xy[8] =  0.0004; xz[8] =  0.0161; yy[8] = -0.0072; yz[8] =  0.0114; zz[8] =  0.0074;   // 9  A5
+xx[9] = -0.0003; xy[9] = -0.0004; xz[9] =  0.0161; yy[9] = -0.0072; yz[9] = -0.0114; zz[9] =  0.0074;   // 10 A5
+xx[10] = 0.0014; xy[10] =-0.0016; xz[10] =-0.0182; yy[10] =-0.0067; yz[10] =-0.0137; zz[10] = 0.0053;   // 11 A6
+xx[11] = 0.0014; xy[11] = 0.0016; xz[11] =-0.0182; yy[11] =-0.0067; yz[11] = 0.0137; zz[11] = 0.0053;   // 12 A6
+xx[12] =-0.0251; xy[12] = 0.0019; xz[12] =-0.0048; yy[12] = 0.0283; yz[12] = 0.0038; zz[12] =-0.0032;   // 13 A7
+xx[13] =-0.0251; xy[13] =-0.0019; xz[13] =-0.0048; yy[13] = 0.0283; yz[13] =-0.0038; zz[13] =-0.0032;   // 14 A7
+xx[14] =-0.0061; xy[14] = 0.0031; xz[14] = 0.0086; yy[14] = 0.0054; yz[14] =-0.0044; zz[14] = 0.0008;   // 15 A8
+xx[15] =-0.0061; xy[15] =-0.0031; xz[15] = 0.0086; yy[15] = 0.0054; yz[15] = 0.0044; zz[15] = 0.0008;   // 16 A8
+
+// B sites
+
+ fermi[0]  = -0.55126E+00; 
+ fermi[1]  = -0.55126E+00; 
+ fermi[2]  = -0.54928E+00; 
+ fermi[3]  = -0.54928E+00; 
+ fermi[4]  = -0.55432E+00; 
+ fermi[5]  = -0.55432E+00; 
+ fermi[6]  = -0.57229E+00; 
+ fermi[7]  = -0.57229E+00; 
+ fermi[8]  = -0.58399E+00; 
+ fermi[9]  = -0.58399E+00; 
+ fermi[10] = -0.58287E+00; 
+ fermi[11] = -0.58287E+00; 
+ fermi[12] = -0.55666E+00; 
+ fermi[13] = -0.55666E+00; 
+ fermi[14] = -0.60132E+00; 
+ fermi[15] = -0.60132E+00; 
+ fermi[16] = -0.58147E+00; 
+ fermi[17] = -0.58147E+00; 
+ fermi[18] = -0.58444E+00; 
+ fermi[19] = -0.58444E+00; 
+ fermi[20] = -0.58315E+00; 
+ fermi[21] = -0.58315E+00; 
+ fermi[22] = -0.59814E+00; 
+ fermi[23] = -0.59814E+00; 
+ fermi[24] = -0.54901E+00; 
+ fermi[25] = -0.54901E+00; 
+ fermi[26] = -0.56177E+00; 
+ fermi[27] = -0.56177E+00; 
+ fermi[28] = -0.59389E+00; 
+ fermi[29] = -0.59389E+00; 
+ fermi[30] = -0.54695E+00; 
+ fermi[31] = -0.54695E+00; 
+
+xx[0]  =   0.19; xy[0]  = -1.19; xz[0]  =   0.08; yy[0]  =   0.59; yz[0]  =  -0.29;  zz[0]  = -0.78;   // 17  B1a1;
+xx[1]  =   0.19; xy[1]  =  1.19; xz[1]  =   0.08; yy[1]  =   0.59; yz[1]  =   0.29;  zz[1]  = -0.78;   // 18  B1a1;
+xx[2]  =   0.46; xy[2]  = -1.18; xz[2]  =  -0.25; yy[2]  =   0.31; yz[2]  =  -0.12;  zz[2]  = -0.77;   // 19  B1a2;
+xx[3]  =   0.46; xy[3]  =  1.18; xz[3]  =  -0.25; yy[3]  =   0.31; yz[3]  =   0.12;  zz[3]  = -0.77;   // 20  B1a2;
+xx[4]  =   0.10; xy[4]  = -1.21; xz[4]  =  -0.13; yy[4]  =   0.71; yz[4]  =   0.26;  zz[4]  = -0.81;   // 21  B1b1;
+xx[5]  =   0.10; xy[5]  =  1.21; xz[5]  =  -0.13; yy[5]  =   0.71; yz[5]  =  -0.26;  zz[5]  = -0.81;   // 22  B1b1;
+xx[6]  =   0.16; xy[6]  = -0.83; xz[6]  =   0.11; yy[6]  =   0.42; yz[6]  =   0.21;  zz[6]  = -0.58;   // 23  B1b2;
+xx[7]  =   0.16; xy[7]  =  0.83; xz[7]  =   0.11; yy[7]  =   0.42; yz[7]  =  -0.21;  zz[7]  = -0.58;   // 24  B1b2;
+xx[8]  =  -0.06; xy[8]  =  0.00; xz[8]  =   0.23; yy[8]  =  -0.54; yz[8]  =   0.03;  zz[8]  =  0.60;   // 25  B2a1;
+xx[9]  =  -0.06; xy[9]  = -0.00; xz[9]  =   0.23; yy[9]  =  -0.54; yz[9]  =  -0.03;  zz[9]  =  0.60;   // 26  B2a1;
+xx[10] =   0.18; xy[10] =  0.59; xz[10] =   0.05; yy[10] =   0.14; yz[10] =  -0.25;  zz[10] = -0.31;   // 27  B2a2;
+xx[11] =   0.18; xy[11] = -0.59; xz[11] =   0.05; yy[11] =   0.14; yz[11] =   0.25;  zz[11] = -0.31;   // 28  B2a2;
+xx[12] =  -0.31; xy[12] =  0.01; xz[12] =  -0.37; yy[12] =  -0.94; yz[12] =   0.01;  zz[12] =  1.25;   // 29  B2b1;
+xx[13] =  -0.31; xy[13] = -0.01; xz[13] =  -0.37; yy[13] =  -0.94; yz[13] =  -0.01;  zz[13] =  1.25;   // 30  B2b1;
+xx[14] =   0.06; xy[14] =  0.00; xz[14] =  -0.12; yy[14] =  -0.05; yz[14] =   0.01;  zz[14] = -0.01;   // 31  B2b2;
+xx[15] =   0.06; xy[15] = -0.00; xz[15] =  -0.12; yy[15] =  -0.05; yz[15] =  -0.01;  zz[15] = -0.01;   // 32  B2b2;
+xx[16] =   0.39; xy[16] = -0.66; xz[16] =   0.17; yy[16] =   0.11; yz[16] =   0.14;  zz[16] = -0.49;   // 33  B31;
+xx[17] =   0.39; xy[17] =  0.66; xz[17] =   0.17; yy[17] =   0.11; yz[17] =  -0.14;  zz[17] = -0.49;   // 34  B31;
+xx[18] =  -0.16; xy[18] = -0.01; xz[18] =  -0.01; yy[18] =  -0.19; yz[18] =  -0.29;  zz[18] =  0.35;   // 35  B32;
+xx[19] =  -0.16; xy[19] =  0.01; xz[19] =  -0.01; yy[19] =  -0.19; yz[19] =   0.29;  zz[19] =  0.35;   // 36  B32;
+xx[20] =   0.14; xy[20] = -0.13; xz[20] =  -0.08; yy[20] =  -0.08; yz[20] =   0.17;  zz[20] = -0.06;   // 37  B33;
+xx[21] =   0.14; xy[21] =  0.13; xz[21] =  -0.08; yy[21] =  -0.08; yz[21] =  -0.17;  zz[21] = -0.06;   // 38  B33;
+xx[22] =  -0.15; xy[22] = -0.23; xz[22] =  -0.05; yy[22] =   0.15; yz[22] =  -0.25;  zz[22] = -0.00;   // 39  B34;
+xx[23] =  -0.15; xy[23] =  0.23; xz[23] =  -0.05; yy[23] =   0.15; yz[23] =   0.25;  zz[23] = -0.00;   // 40  B34;
+xx[24] =  -0.96; xy[24] = -0.00; xz[24] =  -0.06; yy[24] =  -0.58; yz[24] =   0.05;  zz[24] =  1.54;   // 41  B41;
+xx[25] =  -0.96; xy[25] =  0.00; xz[25] =  -0.06; yy[25] =  -0.58; yz[25] =  -0.05;  zz[25] =  1.54;   // 42  B41;
+xx[26] =   0.33; xy[26] =  0.96; xz[26] =   0.20; yy[26] =   0.31; yz[26] =  -0.14;  zz[26] = -0.64;   // 43  B42;
+xx[27] =   0.33; xy[27] = -0.96; xz[27] =   0.20; yy[27] =   0.31; yz[27] =   0.14;  zz[27] = -0.64;   // 44  B42;
+xx[28] =  -0.09; xy[28] =  0.01; xz[28] =  -0.01; yy[28] =   0.06; yz[28] =   0.12;  zz[28] =  0.03;   // 45  B43;
+xx[29] =  -0.09; xy[29] = -0.01; xz[29] =  -0.01; yy[29] =   0.06; yz[29] =  -0.12;  zz[29] =  0.03;   // 46  B43;
+xx[30] =  -1.09; xy[30] = -0.01; xz[30] =  -0.03; yy[30] =  -0.55; yz[30] =   0.16;  zz[30] =  1.63;   // 47  B44;
+xx[31] =  -1.09; xy[31] =  0.01; xz[31] =  -0.03; yy[31] =  -0.55; yz[31] =  -0.16;  zz[31] =  1.63;   // 48  B44;
+
+//test basis 4 OPT
+
+// A sites
+
+ fermi[0]  =   0.62444E+00;
+ fermi[1]  =   0.62444E+00;
+ fermi[2]  =   0.62496E+00;
+ fermi[3]  =   0.62496E+00;
+ fermi[4]  =   0.62749E+00;
+ fermi[5]  =   0.62749E+00;
+ fermi[6]  =   0.62107E+00;
+ fermi[7]  =   0.62107E+00;
+ fermi[8]  =   0.62410E+00;
+ fermi[9]  =   0.62410E+00;
+ fermi[10] =   0.62062E+00;
+ fermi[11] =   0.62062E+00;
+ fermi[12] =   0.62281E+00;
+ fermi[13] =   0.62281E+00;
+ fermi[14] =   0.62288E+00;
+ fermi[15] =   0.62288E+00;
+
+xx[0] =  0.0097; xy[0] = -0.0117; xz[0] =  0.0108; yy[0] = -0.0014; yz[0] =  0.0031; zz[0] = -0.0082;   // 1  A1
+xx[1] =  0.0097; xy[1] =  0.0117; xz[1] =  0.0108; yy[1] = -0.0014; yz[1] = -0.0031; zz[1] = -0.0082;   // 2  A1
+xx[2] =  0.0092; xy[2] = -0.0009; xz[2] =  0.0079; yy[2] = -0.0035; yz[2] = -0.0071; zz[2] = -0.0057;   // 3  A2
+xx[3] =  0.0092; xy[3] =  0.0009; xz[3] =  0.0079; yy[3] = -0.0035; yz[3] =  0.0071; zz[3] = -0.0057;   // 4  A2
+xx[4] = -0.0043; xy[4] = -0.0057; xz[4] =  0.0017; yy[4] = -0.0007; yz[4] =  0.0054; zz[4] =  0.0050;   // 5  A3
+xx[5] = -0.0043; xy[5] =  0.0057; xz[5] =  0.0017; yy[5] = -0.0007; yz[5] = -0.0054; zz[5] =  0.0050;   // 6  A3
+xx[6] = -0.0014; xy[6] = -0.0078; xz[6] =  0.0139; yy[6] =  0.0076; yz[6] =  0.0070; zz[6] = -0.0062;   // 7  A4
+xx[7] = -0.0014; xy[7] =  0.0078; xz[7] =  0.0139; yy[7] =  0.0076; yz[7] = -0.0070; zz[7] = -0.0062;   // 8  A4
+xx[8] =  0.0040; xy[8] =  0.0017; xz[8] =  0.0125; yy[8] = -0.0134; yz[8] =  0.0014; zz[8] =  0.0094;   // 9  A5
+xx[9] =  0.0040; xy[9] = -0.0017; xz[9] =  0.0125; yy[9] = -0.0134; yz[9] = -0.0014; zz[9] =  0.0094;   // 10 A5
+xx[10] = 0.0012; xy[10] =-0.0025; xz[10] =-0.0110; yy[10] =-0.0048; yz[10] =-0.0078; zz[10] = 0.0036;   // 11 A6
+xx[11] = 0.0012; xy[11] = 0.0025; xz[11] =-0.0110; yy[11] =-0.0048; yz[11] = 0.0078; zz[11] = 0.0036;   // 12 A6
+xx[12] =-0.0168; xy[12] = 0.0036; xz[12] = 0.0047; yy[12] = 0.0187; yz[12] =-0.0094; zz[12] =-0.0019;   // 13 A7
+xx[13] =-0.0168; xy[13] =-0.0036; xz[13] = 0.0047; yy[13] = 0.0187; yz[13] = 0.0094; zz[13] =-0.0019;   // 14 A7
+xx[14] =-0.0014; xy[14] = 0.0051; xz[14] = 0.0091; yy[14] = 0.0012; yz[14] =-0.0017; zz[14] = 0.0002;   // 15 A8
+xx[15] =-0.0014; xy[15] =-0.0051; xz[15] = 0.0091; yy[15] = 0.0012; yz[15] = 0.0017; zz[15] = 0.0002;   // 16 A8
+
+
+// B sites
+
+ fermi[0]  = -0.55001E+00; 
+ fermi[1]  = -0.55001E+00; 
+ fermi[2]  = -0.55726E+00; 
+ fermi[3]  = -0.55726E+00; 
+ fermi[4]  = -0.54786E+00; 
+ fermi[5]  = -0.54786E+00; 
+ fermi[6]  = -0.57049E+00; 
+ fermi[7]  = -0.57049E+00; 
+ fermi[8]  = -0.57477E+00; 
+ fermi[9]  = -0.57477E+00; 
+ fermi[10] = -0.57977E+00; 
+ fermi[11] = -0.57977E+00; 
+ fermi[12] = -0.56187E+00; 
+ fermi[13] = -0.56187E+00; 
+ fermi[14] = -0.61015E+00; 
+ fermi[15] = -0.61015E+00; 
+ fermi[16] = -0.58277E+00; 
+ fermi[17] = -0.58277E+00; 
+ fermi[18] = -0.58203E+00; 
+ fermi[19] = -0.58203E+00; 
+ fermi[20] = -0.57981E+00; 
+ fermi[21] = -0.57981E+00; 
+ fermi[22] = -0.58728E+00; 
+ fermi[23] = -0.58728E+00; 
+ fermi[24] = -0.55663E+00; 
+ fermi[25] = -0.55663E+00; 
+ fermi[26] = -0.56869E+00; 
+ fermi[27] = -0.56869E+00; 
+ fermi[28] = -0.59457E+00; 
+ fermi[29] = -0.59457E+00; 
+ fermi[30] = -0.54514E+00; 
+ fermi[31] = -0.54514E+00; 
+
+xx[0]  =   0.21; xy[0]  = -1.19; xz[0]  =   0.01; yy[0]  =   0.57; yz[0]  =  -0.22;  zz[0]  = -0.79;   // 17  B1a1;
+xx[1]  =   0.21; xy[1]  =  1.19; xz[1]  =   0.01; yy[1]  =   0.57; yz[1]  =   0.22;  zz[1]  = -0.79;   // 18  B1a1;
+xx[2]  =   0.44; xy[2]  = -0.92; xz[2]  =  -0.25; yy[2]  =   0.15; yz[2]  =  -0.09;  zz[2]  = -0.60;   // 19  B1a2;
+xx[3]  =   0.44; xy[3]  =  0.92; xz[3]  =  -0.25; yy[3]  =   0.15; yz[3]  =   0.09;  zz[3]  = -0.60;   // 20  B1a2;
+xx[4]  =   0.12; xy[4]  = -1.27; xz[4]  =  -0.09; yy[4]  =   0.73; yz[4]  =   0.27;  zz[4]  = -0.85;   // 21  B1b1;
+xx[5]  =   0.12; xy[5]  =  1.27; xz[5]  =  -0.09; yy[5]  =   0.73; yz[5]  =  -0.27;  zz[5]  = -0.85;   // 22  B1b1;
+xx[6]  =   0.19; xy[6]  = -0.86; xz[6]  =   0.13; yy[6]  =   0.38; yz[6]  =   0.17;  zz[6]  = -0.58;   // 23  B1b2;
+xx[7]  =   0.19; xy[7]  =  0.86; xz[7]  =   0.13; yy[7]  =   0.38; yz[7]  =  -0.17;  zz[7]  = -0.58;   // 24  B1b2;
+xx[8]  =  -0.19; xy[8]  =  0.01; xz[8]  =   0.22; yy[8]  =  -0.75; yz[8]  =   0.03;  zz[8]  =  0.94;   // 25  B2a1;
+xx[9]  =  -0.19; xy[9]  = -0.01; xz[9]  =   0.22; yy[9]  =  -0.75; yz[9]  =  -0.03;  zz[9]  =  0.94;   // 26  B2a1;
+xx[10] =   0.27; xy[10] =  0.76; xz[10] =   0.14; yy[10] =   0.25; yz[10] =  -0.18;  zz[10] = -0.51;   // 27  B2a2;
+xx[11] =   0.27; xy[11] = -0.76; xz[11] =   0.14; yy[11] =   0.25; yz[11] =   0.18;  zz[11] = -0.51;   // 28  B2a2;
+xx[12] =  -0.24; xy[12] =  0.02; xz[12] =  -0.32; yy[12] =  -0.77; yz[12] =   0.02;  zz[12] =  1.01;   // 29  B2b1;
+xx[13] =  -0.24; xy[13] = -0.02; xz[13] =  -0.32; yy[13] =  -0.77; yz[13] =  -0.02;  zz[13] =  1.01;   // 30  B2b1;
+xx[14] =   0.08; xy[14] =  0.04; xz[14] =  -0.13; yy[14] =  -0.07; yz[14] =   0.00;  zz[14] = -0.01;   // 31  B2b2;
+xx[15] =   0.08; xy[15] = -0.04; xz[15] =  -0.13; yy[15] =  -0.07; yz[15] =  -0.00;  zz[15] = -0.01;   // 32  B2b2;
+xx[16] =   0.35; xy[16] = -0.72; xz[16] =   0.16; yy[16] =   0.15; yz[16] =   0.15;  zz[16] = -0.50;   // 33  B31;
+xx[17] =   0.35; xy[17] =  0.72; xz[17] =   0.16; yy[17] =   0.15; yz[17] =  -0.15;  zz[17] = -0.50;   // 34  B31;
+xx[18] =  -0.37; xy[18] = -0.17; xz[18] =   0.11; yy[18] =  -0.22; yz[18] =  -0.23;  zz[18] =  0.59;   // 35  B32;
+xx[19] =  -0.37; xy[19] =  0.17; xz[19] =   0.11; yy[19] =  -0.22; yz[19] =   0.23;  zz[19] =  0.59;   // 36  B32;
+xx[20] =   0.08; xy[20] = -0.25; xz[20] =  -0.11; yy[20] =  -0.09; yz[20] =   0.21;  zz[20] =  0.01;   // 37  B33;
+xx[21] =   0.08; xy[21] =  0.25; xz[21] =  -0.11; yy[21] =  -0.09; yz[21] =  -0.21;  zz[21] =  0.01;   // 38  B33;
+xx[22] =   0.13; xy[22] = -0.61; xz[22] =  -0.11; yy[22] =   0.26; yz[22] =  -0.25;  zz[22] = -0.39;   // 39  B34;
+xx[23] =   0.13; xy[23] =  0.61; xz[23] =  -0.11; yy[23] =   0.26; yz[23] =   0.25;  zz[23] = -0.39;   // 40  B34;
+xx[24] =  -0.92; xy[24] = -0.00; xz[24] =  -0.01; yy[24] =  -0.49; yz[24] =   0.02;  zz[24] =  1.41;   // 41  B41;
+xx[25] =  -0.92; xy[25] =  0.00; xz[25] =  -0.01; yy[25] =  -0.49; yz[25] =  -0.02;  zz[25] =  1.41;   // 42  B41;
+xx[26] =   0.27; xy[26] =  0.85; xz[26] =   0.19; yy[26] =   0.29; yz[26] =  -0.14;  zz[26] = -0.55;   // 43  B42;
+xx[27] =   0.27; xy[27] = -0.85; xz[27] =   0.19; yy[27] =   0.29; yz[27] =   0.14;  zz[27] = -0.55;   // 44  B42;
+xx[28] =  -0.08; xy[28] =  0.00; xz[28] =  -0.01; yy[28] =   0.04; yz[28] =   0.12;  zz[28] =  0.04;   // 45  B43;
+xx[29] =  -0.08; xy[29] = -0.00; xz[29] =  -0.01; yy[29] =   0.04; yz[29] =  -0.12;  zz[29] =  0.04;   // 46  B43;
+xx[30] =  -1.06; xy[30] = -0.00; xz[30] =  -0.06; yy[30] =  -0.65; yz[30] =  -0.05;  zz[30] =  1.08;   // 47  B44;
+xx[31] =  -1.06; xy[31] =  0.00; xz[31] =  -0.06; yy[31] =  -0.65; yz[31] =   0.05;  zz[31] =  1.08;   // 48  B44;
+*/
+
+  e_fac_x = +g_e * beta_e / 2.0 * Bx;
+  e_fac_y = +g_e * beta_e / 2.0 * By;
+  e_fac_z = +g_e * beta_e / 2.0 * Bz;
+  n_fac_x = -g_n * beta_n / 2.0 * Bx;
+  n_fac_y = -g_n * beta_n / 2.0 * By;
+  n_fac_z = -g_n * beta_n / 2.0 * Bz;
+
+// H_a1 = -mu_0/ 4 pi * g_e * beta_e * g_n * beta_n * S . T . I 
+
+// Tensor from Crystal is in a0^-3 
+
+ a0_fac = 2.0 / 3.0 * m0 * g_e * beta_e * g_n * beta_n / a0 / a0 / a0 * 0.5 * 0.5;
+ // a0_fac *= 1.552; magnetite
+
+ a1_fac =  m0 / 4.0 / pi * g_e * beta_e * g_n * beta_n / a0 / a0 / a0 * 0.5 * 0.5; 
+
+ tm_s_fac = g_e * beta_e * B_rot;
+ tm_i_fac =-g_n * beta_n * B_rot;
+
+ tm_s_fac *= 1.0;
+ tm_i_fac *= 1.0;
+
+// Loop over directions 
+
+  for (p = 0; p < 1; p++) {
+  //for (p = 0; p < 3; p++) magnetite
+
+// Loop over crystal orientations 
+
+  for (i = 0; i <= 40; i++) {
+  //for (i = 0; i <= 20; i++) { magnetite
+
+    if (p == 0) {
+
+    //rotate pi / 2 to zero about y
+    
+    theta = (i - 20) * pi / 40.0;
+    sin_theta = sin(theta);
+    cos_theta = cos(theta);
+
+    ux = 0.0;
+    uy = 1.0; 
+    uz = 0.0;
+
+   }
+
+    if (p == 1) {
+
+    //rotate zero to pi / 2 to zero about x
+    
+    theta = i * pi / 40.0;
+    sin_theta = sin(theta);
+    cos_theta = cos(theta);
+
+    ux = 1.0;
+    uy = 0.0; 
+    uz = 0.0;
+
+   }
+
+    if (p == 2) {
+
+    //preliminary rotation of pi / 2 about x
+    
+    theta = pi / 2.0;
+    sin_theta = sin(theta);
+    cos_theta = cos(theta);
+
+    ux = 1.0;
+    uy = 0.0; 
+    uz = 0.0;
+
+gsl_matrix_set(T1,0,0,ux * ux * (1 - cos_theta) + cos_theta);
+gsl_matrix_set(T1,0,1,ux * uy * (1 - cos_theta) - uz * sin_theta);
+gsl_matrix_set(T1,0,2,ux * uz * (1 - cos_theta) + uy * sin_theta);
+gsl_matrix_set(T1,1,0,uy * ux * (1 - cos_theta) + uz * sin_theta);
+gsl_matrix_set(T1,1,1,uy * uy * (1 - cos_theta) + cos_theta);
+gsl_matrix_set(T1,1,2,uy * uz * (1 - cos_theta) - ux * sin_theta);
+gsl_matrix_set(T1,2,0,uz * ux * (1 - cos_theta) - uy * sin_theta);
+gsl_matrix_set(T1,2,1,uz * uy * (1 - cos_theta) + ux * sin_theta);
+gsl_matrix_set(T1,2,2,uz * uz * (1 - cos_theta) + cos_theta);
+
+gsl_matrix_memcpy(T1t, T1);
+gsl_matrix_transpose(T1t);
+
+    //rotate zero to pi / 2 to zero about y
+    
+    theta = i * pi / 40.0;
+    sin_theta = sin(theta);
+    cos_theta = cos(theta);
+
+    ux = 0.0;
+    uy = 1.0; 
+    uz = 0.0;
+
+   }
+
+// Set up rotation matrix 
+
+gsl_matrix_set(T,0,0,ux * ux * (1 - cos_theta) + cos_theta);
+gsl_matrix_set(T,0,1,ux * uy * (1 - cos_theta) - uz * sin_theta);
+gsl_matrix_set(T,0,2,ux * uz * (1 - cos_theta) + uy * sin_theta);
+gsl_matrix_set(T,1,0,uy * ux * (1 - cos_theta) + uz * sin_theta);
+gsl_matrix_set(T,1,1,uy * uy * (1 - cos_theta) + cos_theta);
+gsl_matrix_set(T,1,2,uy * uz * (1 - cos_theta) - ux * sin_theta);
+gsl_matrix_set(T,2,0,uz * ux * (1 - cos_theta) - uy * sin_theta);
+gsl_matrix_set(T,2,1,uz * uy * (1 - cos_theta) + ux * sin_theta);
+gsl_matrix_set(T,2,2,uz * uz * (1 - cos_theta) + cos_theta);
+
+gsl_matrix_memcpy(Tt, T);
+gsl_matrix_transpose(Tt);
+
+/*
+fprintf (stdout,"%3d \n\n",i);
+for (j = 0; j < 3; j++) {
+for (k = 0; k < 3; k++) {
+fprintf(stdout,"%10.4lf ",gsl_matrix_get(T,j,k));
+}
+fprintf(stdout,"    ");
+for (k = 0; k < 3; k++) {
+fprintf(stdout,"%10.4lf ",gsl_matrix_get(Tt,j,k));
+}
+fprintf(stdout,"\n");
+}
+*/
+
+fprintf(datout,"%4d", 20 * p + i);
+
+// Loop over nuclei 
+
+//for (m = 30; m < 32; m++) {
+//for (m = 28; m < 30; m++) {
+//for (m = 14; m < 16; m++) {
+//for (m = 12; m < 14; m++) {
+//for (m = 10; m < 12; m++) {
+//for (m = 8; m < 10; m++) {
+//for (m = 6; m < 8; m++) {
+//for (m = 4; m < 6; m++) {
+//for (m = 2; m < 4 ; m++) {
+//for (m = 0; m < 2; m++) {
+for (m = 0; m < 1; m++) {
+//for (m = 0; m < max; m++) {
+
+gsl_matrix_complex_set_zero(Ha);
+gsl_matrix_complex_set_zero(A0);
+gsl_matrix_complex_set_zero(A1);
+gsl_matrix_complex_set_zero(Ez);
+gsl_matrix_complex_set_zero(Nz);
+gsl_matrix_complex_set_zero(TM);
+gsl_matrix_complex_set_zero(evec);
+gsl_matrix_set_zero(TE);
+gsl_matrix_set_zero(XR);
+
+gsl_matrix_set(XX,0,0,a1_fac * xx[m]);
+gsl_matrix_set(XX,0,1,a1_fac * xy[m]);
+gsl_matrix_set(XX,0,2,a1_fac * xz[m]);
+gsl_matrix_set(XX,1,0,a1_fac * xy[m]);
+gsl_matrix_set(XX,1,1,a1_fac * yy[m]);
+gsl_matrix_set(XX,1,2,a1_fac * yz[m]);
+gsl_matrix_set(XX,2,0,a1_fac * xz[m]);
+gsl_matrix_set(XX,2,1,a1_fac * yz[m]);
+gsl_matrix_set(XX,2,2,a1_fac * zz[m]);
+
+if (p == 2) {
+gsl_blas_dgemm (CblasNoTrans, CblasNoTrans,1.0,T1,XX,0.0,TE);
+gsl_matrix_set_zero(XX);
+gsl_blas_dgemm (CblasNoTrans, CblasNoTrans,1.0,TE,T1t,0.0,XX);
+gsl_matrix_set_zero(TE);
+}
+
+gsl_blas_dgemm (CblasNoTrans, CblasNoTrans,1.0,T,XX,0.0,TE);
+gsl_blas_dgemm (CblasNoTrans, CblasNoTrans,1.0,TE,Tt,0.0,XR);
+
+/*
+fprintf (stdout,"%3d \n\n",i);
+for (j = 0; j < 3; j++) {
+for (k = 0; k < 3; k++) {
+fprintf(stdout,"%12.2e ",gsl_matrix_get(XX,j,k));
+}
+fprintf(stdout,"    ");
+for (k = 0; k < 3; k++) {
+fprintf(stdout,"%12.2e ",gsl_matrix_get(XR,j,k));
+}
+fprintf(stdout,"\n");
+}
+*/
+
+// Fermi contact term 
+
+GSL_SET_COMPLEX(&temp, a0_fac * fermi[m], 0.0);         gsl_matrix_complex_set(A0,0,0,temp);
+GSL_SET_COMPLEX(&temp,           0.0,     0.0);         gsl_matrix_complex_set(A0,0,1,temp);
+GSL_SET_COMPLEX(&temp,           0.0,     0.0);         gsl_matrix_complex_set(A0,0,2,temp);
+GSL_SET_COMPLEX(&temp,           0.0,     0.0);         gsl_matrix_complex_set(A0,0,3,temp);
+
+GSL_SET_COMPLEX(&temp,           0.0,     0.0);         gsl_matrix_complex_set(A0,1,0,temp);
+GSL_SET_COMPLEX(&temp,-a0_fac * fermi[m], 0.0);         gsl_matrix_complex_set(A0,1,1,temp);
+GSL_SET_COMPLEX(&temp,2.0 * a0_fac * fermi[m], 0.0);    gsl_matrix_complex_set(A0,1,2,temp);
+GSL_SET_COMPLEX(&temp,           0.0,     0.0);         gsl_matrix_complex_set(A0,1,3,temp);
+
+GSL_SET_COMPLEX(&temp,           0.0,     0.0);         gsl_matrix_complex_set(A0,2,0,temp);
+GSL_SET_COMPLEX(&temp,2.0 * a0_fac * fermi[m], 0.0);    gsl_matrix_complex_set(A0,2,1,temp);
+GSL_SET_COMPLEX(&temp,-a0_fac * fermi[m], 0.0);         gsl_matrix_complex_set(A0,2,2,temp);
+GSL_SET_COMPLEX(&temp,           0.0,     0.0);         gsl_matrix_complex_set(A0,2,3,temp);
+
+GSL_SET_COMPLEX(&temp,           0.0,     0.0);         gsl_matrix_complex_set(A0,3,0,temp);
+GSL_SET_COMPLEX(&temp,           0.0,     0.0);         gsl_matrix_complex_set(A0,3,1,temp);
+GSL_SET_COMPLEX(&temp,           0.0,     0.0);         gsl_matrix_complex_set(A0,3,2,temp);
+GSL_SET_COMPLEX(&temp, a0_fac * fermi[m], 0.0);         gsl_matrix_complex_set(A0,3,3,temp);
+
+// Hyperfine anisotropy term 
+
+GSL_SET_COMPLEX(&temp, gsl_matrix_get(XR,2,2),    0.0);                                                 gsl_matrix_complex_set(A1,0,0,temp);
+GSL_SET_COMPLEX(&temp, gsl_matrix_get(XR,0,2), -gsl_matrix_get(XR,1,2));                                gsl_matrix_complex_set(A1,0,1,temp);
+GSL_SET_COMPLEX(&temp, gsl_matrix_get(XR,0,2), -gsl_matrix_get(XR,1,2));                                gsl_matrix_complex_set(A1,0,2,temp);
+GSL_SET_COMPLEX(&temp, gsl_matrix_get(XR,0,0) - gsl_matrix_get(XR,1,1), -2.0 * gsl_matrix_get(XR,0,1)); gsl_matrix_complex_set(A1,0,3,temp);
+
+GSL_SET_COMPLEX(&temp, gsl_matrix_get(XR,0,2),  gsl_matrix_get(XR,1,2));                                gsl_matrix_complex_set(A1,1,0,temp);
+GSL_SET_COMPLEX(&temp,-gsl_matrix_get(XR,2,2),    0.0);                                                 gsl_matrix_complex_set(A1,1,1,temp);
+GSL_SET_COMPLEX(&temp, gsl_matrix_get(XR,0,0) + gsl_matrix_get(XR,1,1), 0.0);                           gsl_matrix_complex_set(A1,1,2,temp);
+GSL_SET_COMPLEX(&temp,-gsl_matrix_get(XR,0,2),  gsl_matrix_get(XR,1,2));                                gsl_matrix_complex_set(A1,1,3,temp);
+
+GSL_SET_COMPLEX(&temp, gsl_matrix_get(XR,0,2),  gsl_matrix_get(XR,1,2));                                gsl_matrix_complex_set(A1,2,0,temp);
+GSL_SET_COMPLEX(&temp, gsl_matrix_get(XR,0,0) + gsl_matrix_get(XR,1,1), 0.0);                           gsl_matrix_complex_set(A1,2,1,temp);
+GSL_SET_COMPLEX(&temp,-gsl_matrix_get(XR,2,2),    0.0);                                                 gsl_matrix_complex_set(A1,2,2,temp);
+GSL_SET_COMPLEX(&temp,-gsl_matrix_get(XR,0,2),  gsl_matrix_get(XR,1,2));                                gsl_matrix_complex_set(A1,2,3,temp);
+
+GSL_SET_COMPLEX(&temp, gsl_matrix_get(XR,0,0)  -gsl_matrix_get(XR,1,1),  2.0 * gsl_matrix_get(XR,0,1)); gsl_matrix_complex_set(A1,3,0,temp);
+GSL_SET_COMPLEX(&temp,-gsl_matrix_get(XR,0,2), -gsl_matrix_get(XR,1,2));                                gsl_matrix_complex_set(A1,3,1,temp);
+GSL_SET_COMPLEX(&temp,-gsl_matrix_get(XR,0,2), -gsl_matrix_get(XR,1,2));                                gsl_matrix_complex_set(A1,3,2,temp);
+GSL_SET_COMPLEX(&temp, gsl_matrix_get(XR,2,2),    0.0);                                                 gsl_matrix_complex_set(A1,3,3,temp);
+
+// Electron Zeeman term 
+
+GSL_SET_COMPLEX(&temp, e_fac_z,     0.0);               gsl_matrix_complex_set(Ez,0,0,temp);
+GSL_SET_COMPLEX(&temp,     0.0,     0.0);               gsl_matrix_complex_set(Ez,0,1,temp);
+GSL_SET_COMPLEX(&temp, e_fac_x,-e_fac_y);               gsl_matrix_complex_set(Ez,0,2,temp);
+GSL_SET_COMPLEX(&temp,     0.0,     0.0);               gsl_matrix_complex_set(Ez,0,3,temp);
+
+GSL_SET_COMPLEX(&temp,     0.0,     0.0);               gsl_matrix_complex_set(Ez,1,0,temp);
+GSL_SET_COMPLEX(&temp, e_fac_z,     0.0);               gsl_matrix_complex_set(Ez,1,1,temp);
+GSL_SET_COMPLEX(&temp,     0.0,     0.0);               gsl_matrix_complex_set(Ez,1,2,temp);
+GSL_SET_COMPLEX(&temp, e_fac_x,-e_fac_y);               gsl_matrix_complex_set(Ez,1,3,temp);
+
+GSL_SET_COMPLEX(&temp, e_fac_x, e_fac_y);               gsl_matrix_complex_set(Ez,2,0,temp);
+GSL_SET_COMPLEX(&temp,     0.0,     0.0);               gsl_matrix_complex_set(Ez,2,1,temp);
+GSL_SET_COMPLEX(&temp,-e_fac_z,     0.0);               gsl_matrix_complex_set(Ez,2,2,temp);
+GSL_SET_COMPLEX(&temp,     0.0,     0.0);               gsl_matrix_complex_set(Ez,2,3,temp);
+
+GSL_SET_COMPLEX(&temp,     0.0,     0.0);               gsl_matrix_complex_set(Ez,3,0,temp);
+GSL_SET_COMPLEX(&temp, e_fac_x, e_fac_y);               gsl_matrix_complex_set(Ez,3,1,temp);
+GSL_SET_COMPLEX(&temp,     0.0,     0.0);               gsl_matrix_complex_set(Ez,3,2,temp);
+GSL_SET_COMPLEX(&temp,-e_fac_z,     0.0);               gsl_matrix_complex_set(Ez,3,3,temp);
+
+// Nuclear Zeeman term 
+
+GSL_SET_COMPLEX(&temp, n_fac_z,     0.0);               gsl_matrix_complex_set(Nz,0,0,temp);
+GSL_SET_COMPLEX(&temp, n_fac_x,-n_fac_y);               gsl_matrix_complex_set(Nz,0,1,temp);
+GSL_SET_COMPLEX(&temp,     0.0,     0.0);               gsl_matrix_complex_set(Nz,0,2,temp);
+GSL_SET_COMPLEX(&temp,     0.0,     0.0);               gsl_matrix_complex_set(Nz,0,3,temp);
+
+GSL_SET_COMPLEX(&temp, n_fac_x, n_fac_y);               gsl_matrix_complex_set(Nz,1,0,temp);
+GSL_SET_COMPLEX(&temp,-n_fac_z,     0.0);               gsl_matrix_complex_set(Nz,1,1,temp);
+GSL_SET_COMPLEX(&temp,      0.0,    0.0);               gsl_matrix_complex_set(Nz,1,2,temp);
+GSL_SET_COMPLEX(&temp,      0.0,    0.0);               gsl_matrix_complex_set(Nz,1,3,temp);
+
+GSL_SET_COMPLEX(&temp,     0.0,     0.0);               gsl_matrix_complex_set(Nz,2,0,temp);
+GSL_SET_COMPLEX(&temp,     0.0,     0.0);               gsl_matrix_complex_set(Nz,2,1,temp);
+GSL_SET_COMPLEX(&temp, n_fac_z,     0.0);               gsl_matrix_complex_set(Nz,2,2,temp);
+GSL_SET_COMPLEX(&temp, n_fac_x,-n_fac_y);               gsl_matrix_complex_set(Nz,2,3,temp);
+
+GSL_SET_COMPLEX(&temp,     0.0,     0.0);               gsl_matrix_complex_set(Nz,3,0,temp);
+GSL_SET_COMPLEX(&temp,     0.0,     0.0);               gsl_matrix_complex_set(Nz,3,1,temp);
+GSL_SET_COMPLEX(&temp, n_fac_x, n_fac_y);               gsl_matrix_complex_set(Nz,3,2,temp);
+GSL_SET_COMPLEX(&temp,-n_fac_z,     0.0);               gsl_matrix_complex_set(Nz,3,3,temp);
+
+// Transition matrix 
+
+GSL_SET_COMPLEX(&temp,      0.0, 0.0);                  gsl_matrix_complex_set(TM,0,0,temp);
+GSL_SET_COMPLEX(&temp, tm_i_fac, 0.0);                  gsl_matrix_complex_set(TM,0,1,temp);
+GSL_SET_COMPLEX(&temp, tm_s_fac, 0.0);                  gsl_matrix_complex_set(TM,0,2,temp);
+GSL_SET_COMPLEX(&temp,      0.0, 0.0);                  gsl_matrix_complex_set(TM,0,3,temp);
+
+GSL_SET_COMPLEX(&temp,      0.0, 0.0);                  gsl_matrix_complex_set(TM,1,0,temp);
+GSL_SET_COMPLEX(&temp,      0.0, 0.0);                  gsl_matrix_complex_set(TM,1,1,temp);
+GSL_SET_COMPLEX(&temp,      0.0, 0.0);                  gsl_matrix_complex_set(TM,1,2,temp);
+GSL_SET_COMPLEX(&temp, tm_s_fac, 0.0);                  gsl_matrix_complex_set(TM,1,3,temp);
+
+GSL_SET_COMPLEX(&temp,      0.0, 0.0);                  gsl_matrix_complex_set(TM,1,0,temp);
+GSL_SET_COMPLEX(&temp,      0.0, 0.0);                  gsl_matrix_complex_set(TM,2,1,temp);
+GSL_SET_COMPLEX(&temp,      0.0, 0.0);                  gsl_matrix_complex_set(TM,2,2,temp);
+GSL_SET_COMPLEX(&temp, tm_i_fac, 0.0);                  gsl_matrix_complex_set(TM,2,3,temp);
+
+GSL_SET_COMPLEX(&temp,      0.0, 0.0);                  gsl_matrix_complex_set(TM,3,0,temp);
+GSL_SET_COMPLEX(&temp,      0.0, 0.0);                  gsl_matrix_complex_set(TM,3,1,temp);
+GSL_SET_COMPLEX(&temp,      0.0, 0.0);                  gsl_matrix_complex_set(TM,3,2,temp);
+GSL_SET_COMPLEX(&temp,      0.0, 0.0);                  gsl_matrix_complex_set(TM,3,3,temp);
+
+gsl_matrix_complex_add (Ha, Ez);
+gsl_matrix_complex_add (Ha, Nz);
+gsl_matrix_complex_add (Ha, A0);
+gsl_matrix_complex_add (Ha, A1);
+
+gsl_eigen_hermv (Ha, eval, evec, w);
+gsl_eigen_hermv_sort (eval, evec, GSL_EIGEN_SORT_VAL_ASC);
+
+energy_level[0] = gsl_vector_get(eval,0);
+energy_level[1] = gsl_vector_get(eval,1);
+energy_level[2] = gsl_vector_get(eval,2);
+energy_level[3] = gsl_vector_get(eval,3);
+
+// Calculate transition matrix elements and transition energies 
+
+epr_transition_energy[0] = energy_level[2] - energy_level[0];
+epr_transition_energy[1] = energy_level[3] - energy_level[0];
+epr_transition_energy[2] = energy_level[2] - energy_level[1];
+epr_transition_energy[3] = energy_level[3] - energy_level[1];
+
+gsl_matrix_complex_set_zero(zmat_temp0);
+gsl_matrix_complex_set_zero(zmat_temp1);
+
+gsl_complex alpha, beta;
+GSL_SET_COMPLEX(&alpha, 1.0,0.0);
+GSL_SET_COMPLEX(&beta,  0.0,0.0);
+
+gsl_blas_zgemm(CblasConjTrans,CblasNoTrans,alpha,evec,TM,beta,zmat_temp0);
+gsl_blas_zgemm(CblasNoTrans,CblasNoTrans,alpha,zmat_temp0,evec,beta,zmat_temp1);
+
+epr_transition_matrix[0]  = GSL_REAL(gsl_matrix_complex_get(zmat_temp1,2,0));
+epr_transition_matrix[1]  = GSL_REAL(gsl_matrix_complex_get(zmat_temp1,3,0));
+epr_transition_matrix[2]  = GSL_REAL(gsl_matrix_complex_get(zmat_temp1,2,1));
+epr_transition_matrix[3]  = GSL_REAL(gsl_matrix_complex_get(zmat_temp1,3,1));
+
+nmr_transition_matrix[0]  = GSL_REAL(gsl_matrix_complex_get(zmat_temp1,1,0));
+nmr_transition_matrix[1]  = GSL_REAL(gsl_matrix_complex_get(zmat_temp1,3,2));
+
+//fprintf(stdout,"%12.4e %12.4e %12.4e %12.4e %12.4e %12.4e  ", \
+epr_transition_matrix[0], epr_transition_matrix[1], epr_transition_matrix[2], epr_transition_matrix[3], \
+nmr_transition_matrix[0], nmr_transition_matrix[1]);
+//fprintf(stdout,"\n");
+
+// <2|0> transition 
+temp_f = gsl_matrix_complex_get(evec,2,0);
+temp_i = gsl_matrix_complex_get(evec,0,2);
+temp   = gsl_complex_mul(temp_f, temp_i);
+temp_m = gsl_complex_mul(gsl_complex_conjugate(temp), temp);
+epr_transition_matrix[0]  = GSL_REAL(temp_m);
+
+temp_f = gsl_matrix_complex_get(evec,2,1);
+temp_i = gsl_matrix_complex_get(evec,0,3);
+temp   = gsl_complex_mul(temp_f, temp_i);
+temp_m = gsl_complex_mul(gsl_complex_conjugate(temp), temp);
+epr_transition_matrix[0] += GSL_REAL(temp_m);
+
+// <3|0> transition 
+temp_f = gsl_matrix_complex_get(evec,3,0);
+temp_i = gsl_matrix_complex_get(evec,0,2);
+temp   = gsl_complex_mul(temp_f, temp_i);
+temp_m = gsl_complex_mul(gsl_complex_conjugate(temp), temp);
+epr_transition_matrix[1] =  GSL_REAL(temp_m);
+
+temp_f = gsl_matrix_complex_get(evec,3,1);
+temp_i = gsl_matrix_complex_get(evec,0,3);
+temp   = gsl_complex_mul(temp_f, temp_i);
+temp_m = gsl_complex_mul(gsl_complex_conjugate(temp), temp);
+epr_transition_matrix[1] += GSL_REAL(temp_m);
+
+// <2|1> transition 
+temp_f = gsl_matrix_complex_get(evec,2,0);
+temp_i = gsl_matrix_complex_get(evec,1,2);
+temp   = gsl_complex_mul(temp_f, temp_i);
+temp_m = gsl_complex_mul(gsl_complex_conjugate(temp), temp);
+epr_transition_matrix[2]  = GSL_REAL(temp_m);
+
+temp_f = gsl_matrix_complex_get(evec,2,1);
+temp_i = gsl_matrix_complex_get(evec,1,3);
+temp   = gsl_complex_mul(temp_f, temp_i);
+temp_m = gsl_complex_mul(gsl_complex_conjugate(temp), temp);
+epr_transition_matrix[2] += GSL_REAL(temp_m);
+
+// <3|1> transition 
+temp_f = gsl_matrix_complex_get(evec,3,0);
+temp_i = gsl_matrix_complex_get(evec,1,2);
+temp   = gsl_complex_mul(temp_f, temp_i);
+temp_m = gsl_complex_mul(gsl_complex_conjugate(temp), temp);
+epr_transition_matrix[3]  = GSL_REAL(temp_m);
+
+temp_f = gsl_matrix_complex_get(evec,3,1);
+temp_i = gsl_matrix_complex_get(evec,1,3);
+temp   = gsl_complex_mul(temp_f, temp_i);
+temp_m = gsl_complex_mul(gsl_complex_conjugate(temp), temp);
+epr_transition_matrix[3] += GSL_REAL(temp_m);
+
+nmr_transition_energy[0] = energy_level[1] - energy_level[0];
+nmr_transition_energy[1] = energy_level[3] - energy_level[2];
+
+// <1|0> transition 
+temp_f = gsl_matrix_complex_get(evec,1,0);
+temp_i = gsl_matrix_complex_get(evec,0,1);
+temp   = gsl_complex_mul(temp_f, temp_i);
+temp_m = gsl_complex_mul(gsl_complex_conjugate(temp), temp);
+nmr_transition_matrix[0]  = GSL_REAL(temp_m);
+
+temp_f = gsl_matrix_complex_get(evec,1,2);
+temp_i = gsl_matrix_complex_get(evec,0,3);
+temp   = gsl_complex_mul(temp_f, temp_i);
+temp_m = gsl_complex_mul(gsl_complex_conjugate(temp), temp);
+nmr_transition_matrix[0] += GSL_REAL(temp_m);
+
+// <3|2> transition 
+temp_f = gsl_matrix_complex_get(evec,3,0);
+temp_i = gsl_matrix_complex_get(evec,2,1);
+temp   = gsl_complex_mul(temp_f, temp_i);
+temp_m = gsl_complex_mul(gsl_complex_conjugate(temp), temp);
+nmr_transition_matrix[1]  = GSL_REAL(temp_m);
+
+temp_f = gsl_matrix_complex_get(evec,3,2);
+temp_i = gsl_matrix_complex_get(evec,2,3);
+temp   = gsl_complex_mul(temp_f, temp_i);
+temp_m = gsl_complex_mul(gsl_complex_conjugate(temp), temp);
+nmr_transition_matrix[1] += GSL_REAL(temp_m);
+
+fprintf(datout,"%12.4e %12.4e %12.4e %12.4e %12.4e %12.4e %12.4e %12.4e %12.4e %12.4e %12.4e %12.4e %12.4e %12.4e %12.4e %12.4e", \
+energy_level[0], energy_level[1], energy_level[2], energy_level[3], \
+epr_transition_energy[0], epr_transition_energy[1], epr_transition_energy[2], epr_transition_energy[3],
+epr_transition_matrix[0], epr_transition_matrix[1], epr_transition_matrix[2], epr_transition_matrix[3],
+nmr_transition_energy[0], nmr_transition_energy[1], nmr_transition_matrix[0], nmr_transition_matrix[1]);
+
+//fprintf(stdout,"%12.4e %12.4e %12.4e %12.4e %12.4e %12.4e\n", \
+epr_transition_matrix[0], epr_transition_matrix[1], epr_transition_matrix[2], epr_transition_matrix[3], \
+nmr_transition_matrix[0], nmr_transition_matrix[1]);
+
+} // close loop on m
+
+fprintf (datout,"\n");
+
+} // close loop on i (B-field direction)
+
+} // close loop on p (B-field direction)
+
+gsl_matrix_free(T);
+gsl_matrix_free(XX);
+gsl_vector_free(eval);
+gsl_eigen_hermv_free(w);
+gsl_matrix_complex_free (evec);
+
+}
